@@ -1,41 +1,63 @@
-# vibe-stack-supabase
+# Market Intel & Biz Dev
 
-Next.js 15 + Supabase starter for shipping vibe-coded apps fast. Clone, provision, build.
+Internal market-intelligence tool for the MP Biomedicals business-development team:
+capture AI-researched market **opportunities and threats**, rank them by priority,
+assign response **actions** to teammates, and track follow-up — replacing spreadsheets
+with a shared dashboard.
+
+Built from the plan in [`/docs`](docs/) (PRD, data model, architecture, tasks).
 
 ## Stack
 
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 15 (App Router, React 19, Server Actions) |
-| Language | TypeScript strict |
-| Styles | Tailwind CSS v4 (CSS-first, no config file) |
-| Auth + DB | Supabase (`@supabase/ssr`) |
-| Package manager | Bun |
-| Deploy | Vercel |
+| Language | TypeScript |
+| Styles | Tailwind CSS v4 |
+| Database | Supabase (Postgres + RLS) |
+| AI research scan | Anthropic Claude (`@anthropic-ai/sdk`), server-side |
+| Deploy | Vercel (auto-deploy from `main`) |
 
-## Quick start
+## Core objects
+
+- **intel_items** — an opportunity or threat (AI-researched or manual), ranked by a
+  rule-based `priority_score` (see `lib/scoring.ts`).
+- **actions** — a response task on an intel item, with assignee, role, due date, status.
+- **research_runs** — a logged AI scan (query, status, result count).
+
+## The main workflow
+
+1. Enter a topic on **Run AI scan** → Claude returns 3–5 draft intel cards.
+2. Review / edit / select the drafts → **Save** persists them to the dashboard.
+3. Open an item → **Add action**, assign a teammate + due date.
+4. Everything is ranked by priority; change statuses as you act. No dead buttons.
+
+The app is **demo-first (no login)** and degrades gracefully: if no Claude key is set,
+the AI scan points you to manual entry and every other feature still works.
+
+## Local development
 
 ```bash
-bun install
-cp .env.example .env.local   # fill in your Supabase keys
-bun dev
+npm install
+vercel env pull .env.local     # Supabase URL + anon key (+ ANTHROPIC_API_KEY if set)
+npm run dev
 ```
 
-Open http://localhost:3000. Edit `app/page.tsx` to start building.
+Open http://localhost:3000.
 
-## Provisioning a new project
+## Database
 
-Use the `/new-vibe-project <name>` skill (see `claude-dotfiles` repo) which:
-1. Clones this template and renames it
-2. Creates a new GitHub repo and pushes
-3. Creates a Supabase project and injects URL + anon key
-4. Creates a Vercel project linked to the GitHub repo
-5. Triggers first deploy and returns the preview URL
+Schema + seed live in [`supabase/migrations`](supabase/migrations/) (combined for
+convenience in `supabase/apply_all.sql`). Apply once via the Supabase dashboard →
+SQL Editor, or the Supabase CLI. Tables use permissive RLS for the demo phase;
+owner-scoped policies come with the auth lock-down sprint.
 
-## Working with AI
+## Environment variables
 
-See [CLAUDE.md](CLAUDE.md) for conventions. This repo is pre-wired for gstack — start with `/office-hours`.
+| Var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase access |
+| `ANTHROPIC_API_KEY` | Enables the live AI research scan (optional — app works without it) |
+| `ANTHROPIC_MODEL` | Optional model override (default `claude-opus-5`) |
 
-## Switching to Neon
-
-If you need Postgres without Supabase (e.g. prefer Drizzle ORM + Clerk for auth), a `vibe-stack-neon` variant is planned. For now: fork this and swap `@supabase/ssr` for `drizzle-orm` + `@neondatabase/serverless`, add Clerk or NextAuth.
+See [CLAUDE.md](CLAUDE.md) for build conventions and the deploy workflow.
