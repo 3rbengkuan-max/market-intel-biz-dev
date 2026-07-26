@@ -39,7 +39,16 @@ export default async function Dashboard({
             Opportunities &amp; threats ranked by priority. Higher score = act sooner.
           </p>
         </div>
-        <Filters type={type ?? "all"} status={status ?? "all"} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Filters type={type ?? "all"} status={status ?? "all"} />
+          <a
+            href="/api/export"
+            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+            title="Download all intel items and actions as an Excel spreadsheet"
+          >
+            ⬇ Export Excel
+          </a>
+        </div>
       </div>
 
       {sp.saved && (
