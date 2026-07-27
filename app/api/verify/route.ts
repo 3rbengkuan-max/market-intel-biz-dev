@@ -94,9 +94,10 @@ Compare the INTEL ITEM (title + description) against the SOURCE TEXT extracted f
 Decide how well the source backs up the specific claim:
 - "aligned": the source clearly supports the core claim.
 - "partial": the source is on-topic and partially supports it, but key specifics are missing or only loosely related.
-- "misaligned": the source does not support the claim, is about something else, or contradicts it.
+- "misaligned": the source has real content but does not support the claim, is about something else, or contradicts it.
+- "unreachable": the SOURCE TEXT is not the real article at all — it is a JavaScript-required stub, a bot/CAPTCHA challenge, a cookie/consent wall, a paywall, a login page, or an error page. In this case the source could not actually be read, so do NOT judge the claim as misaligned.
 Respond with ONLY a JSON object (no prose, no code fences, no internal tags):
-{"status":"aligned"|"partial"|"misaligned","notes":"one or two sentences explaining the verdict, citing what the source does or doesn't say"}`;
+{"status":"aligned"|"partial"|"misaligned"|"unreachable","notes":"one or two sentences explaining the verdict, citing what the source does or doesn't say"}`;
 
   const user = `INTEL ITEM
 Title: ${intel.title}
@@ -132,7 +133,11 @@ ${sourceText}
     return { status: "partial", notes: "Could not parse the alignment result; review manually." };
   }
   const status: SourceCheckStatus =
-    parsed.status === "aligned" || parsed.status === "misaligned" ? parsed.status : "partial";
+    parsed.status === "aligned" ||
+    parsed.status === "misaligned" ||
+    parsed.status === "unreachable"
+      ? parsed.status
+      : "partial";
   return { status, notes: String(parsed.notes ?? "").trim().slice(0, 600) || "No explanation returned." };
 }
 
