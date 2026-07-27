@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { createClient } from "@/lib/supabase/server";
-import { STATUS_LABELS, type Action, type IntelItem } from "@/lib/types";
+import {
+  STATUS_LABELS,
+  SOURCE_CHECK_LABELS,
+  type Action,
+  type IntelItem,
+  type SourceCheckStatus,
+} from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,6 +70,8 @@ export async function GET() {
     { header: "Source", key: "source", width: 12 },
     { header: "Review", key: "review", width: 12 },
     { header: "Actions", key: "actions", width: 9 },
+    { header: "Source check", key: "source_check", width: 16 },
+    { header: "Source check notes", key: "source_check_notes", width: 50 },
     { header: "Recommendation", key: "recommendation", width: 55 },
     { header: "Source URL", key: "source_url", width: 40 },
     { header: "Created", key: "created", width: 12 },
@@ -80,6 +88,8 @@ export async function GET() {
       source: it.source,
       review: it.review_status,
       actions: actionCount.get(it.id) ?? 0,
+      source_check: SOURCE_CHECK_LABELS[(it.source_check_status ?? "unchecked") as SourceCheckStatus],
+      source_check_notes: it.source_check_notes ?? "",
       recommendation: it.recommendation ?? "",
       source_url: it.source_url ?? "",
       created: it.created_at ? new Date(it.created_at) : "",
@@ -94,8 +104,9 @@ export async function GET() {
     row.getCell("created").numFmt = "yyyy-mm-dd";
     row.getCell("title").alignment = { wrapText: true, vertical: "top" };
     row.getCell("recommendation").alignment = { wrapText: true, vertical: "top" };
+    row.getCell("source_check_notes").alignment = { wrapText: true, vertical: "top" };
   }
-  s1.autoFilter = { from: "A1", to: "K1" };
+  s1.autoFilter = { from: "A1", to: "M1" };
 
   // ── Sheet 2: Actions ─────────────────────────────────────────────────────
   const s2 = wb.addWorksheet("Actions", { views: [{ state: "frozen", ySplit: 1 }] });

@@ -1,4 +1,42 @@
-import { STATUS_LABELS } from "@/lib/types";
+import { STATUS_LABELS, SOURCE_CHECK_LABELS, type SourceCheckStatus } from "@/lib/types";
+
+const SOURCE_CHECK_STYLE: Record<SourceCheckStatus, string> = {
+  unchecked: "bg-neutral-100 text-neutral-500",
+  aligned: "bg-emerald-100 text-emerald-800",
+  partial: "bg-amber-100 text-amber-800",
+  misaligned: "bg-rose-100 text-rose-800",
+  unreachable: "bg-neutral-200 text-neutral-600",
+};
+
+const SOURCE_CHECK_ICON: Record<SourceCheckStatus, string> = {
+  unchecked: "○",
+  aligned: "✓",
+  partial: "~",
+  misaligned: "✗",
+  unreachable: "⚠",
+};
+
+export function SourceCheckBadge({
+  status,
+  compact = false,
+}: {
+  status?: SourceCheckStatus | null;
+  compact?: boolean;
+}) {
+  const s = (status ?? "unchecked") as SourceCheckStatus;
+  if (compact && s === "unchecked") return null;
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium " +
+        (SOURCE_CHECK_STYLE[s] ?? SOURCE_CHECK_STYLE.unchecked)
+      }
+      title="Whether the cited source actually supports this intel"
+    >
+      {SOURCE_CHECK_ICON[s]} {SOURCE_CHECK_LABELS[s]}
+    </span>
+  );
+}
 
 export function TypeBadge({ type }: { type: string }) {
   const isOpp = type === "opportunity";

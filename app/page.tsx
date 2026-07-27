@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getIntelItems, getActionCounts, getDashboardStats } from "@/lib/data";
 import type { IntelStatus, IntelType } from "@/lib/types";
-import { TypeBadge, StatusBadge, PriorityPill } from "./components/badges";
+import { TypeBadge, StatusBadge, PriorityPill, SourceCheckBadge } from "./components/badges";
 import { Filters } from "./components/filters";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +88,7 @@ export default async function Dashboard({
                           AI scan
                         </span>
                       )}
+                      <SourceCheckBadge status={item.source_check_status} compact />
                       {n > 0 && (
                         <span className="text-xs text-neutral-500">
                           {n} action{n === 1 ? "" : "s"}

@@ -6,6 +6,13 @@ export type ReviewStatus = "unreviewed" | "reviewed" | "rejected";
 export type ActionType = "develop" | "leverage" | "mitigate" | "monitor";
 export type ActionStatus = "draft" | "planned" | "in_progress" | "done";
 
+export type SourceCheckStatus =
+  | "unchecked"
+  | "aligned"
+  | "partial"
+  | "misaligned"
+  | "unreachable";
+
 export type RunStatus = "running" | "completed" | "failed";
 
 export interface IntelItem {
@@ -23,6 +30,9 @@ export interface IntelItem {
   review_status: ReviewStatus;
   research_run_id: string | null;
   created_at: string;
+  source_check_status?: SourceCheckStatus | null;
+  source_check_notes?: string | null;
+  source_checked_at?: string | null;
 }
 
 export interface Action {
@@ -66,6 +76,14 @@ export const ASSIGNEE_ROLES = [
   "product specialist",
   "field application scientist",
 ] as const;
+
+export const SOURCE_CHECK_LABELS: Record<SourceCheckStatus, string> = {
+  unchecked: "Source not checked",
+  aligned: "Source aligned",
+  partial: "Partly aligned",
+  misaligned: "Source misaligned",
+  unreachable: "Source unreachable",
+};
 
 export const STATUS_LABELS: Record<string, string> = {
   new: "New",

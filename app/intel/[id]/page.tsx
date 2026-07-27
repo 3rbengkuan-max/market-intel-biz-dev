@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getIntelItem } from "@/lib/data";
-import { TypeBadge, StatusBadge, PriorityPill } from "@/app/components/badges";
+import { TypeBadge, StatusBadge, PriorityPill, SourceCheckBadge } from "@/app/components/badges";
+import { VerifySource } from "@/app/components/verify-source";
 import { IntelStatusControl } from "@/app/components/intel-status-control";
 import { DeleteIntelButton } from "@/app/components/delete-intel-button";
 import { ActionsPanel } from "@/app/components/actions-panel";
@@ -94,6 +95,16 @@ export default async function IntelDetailPage({
             </a>
           </div>
         )}
+
+        <div className="mt-4">
+          <VerifySource
+            id={item.id}
+            hasSource={Boolean(item.source_url)}
+            status={item.source_check_status}
+            notes={item.source_check_notes}
+            checkedAt={item.source_checked_at}
+          />
+        </div>
       </div>
 
       <ActionsPanel intelItemId={item.id} actions={item.actions} />
