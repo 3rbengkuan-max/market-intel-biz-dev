@@ -68,6 +68,19 @@ export async function getIntelItem(
   };
 }
 
+/** IDs of items that have a real source URL — the set worth running a source check on. */
+export async function getCheckableSourceIds(): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("intel_items")
+    .select("id")
+    .not("source_url", "is", null)
+    .neq("source_url", "")
+    .order("priority_score", { ascending: false });
+  if (error || !data) return [];
+  return (data as { id: string }[]).map((r) => r.id);
+}
+
 export async function getDashboardStats(): Promise<{
   total: number;
   opportunities: number;

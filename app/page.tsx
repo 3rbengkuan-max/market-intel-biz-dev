@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { getIntelItems, getActionCounts, getDashboardStats } from "@/lib/data";
+import {
+  getIntelItems,
+  getActionCounts,
+  getDashboardStats,
+  getCheckableSourceIds,
+} from "@/lib/data";
 import type { IntelStatus, IntelType } from "@/lib/types";
 import { TypeBadge, StatusBadge, PriorityPill, SourceCheckBadge } from "./components/badges";
 import { Filters } from "./components/filters";
+import { CheckAllSources } from "./components/check-all-sources";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +30,11 @@ export default async function Dashboard({
   const type = (sp.type as IntelType | "all") ?? "all";
   const status = (sp.status as IntelStatus | "all") ?? "all";
 
-  const [{ items, error }, counts, stats] = await Promise.all([
+  const [{ items, error }, counts, stats, checkableIds] = await Promise.all([
     getIntelItems({ type, status }),
     getActionCounts(),
     getDashboardStats(),
+    getCheckableSourceIds(),
   ]);
 
   return (
@@ -41,6 +48,7 @@ export default async function Dashboard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Filters type={type ?? "all"} status={status ?? "all"} />
+          <CheckAllSources ids={checkableIds} />
           <a
             href="/api/export"
             className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
