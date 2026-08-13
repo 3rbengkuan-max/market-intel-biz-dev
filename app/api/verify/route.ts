@@ -1,144 +1,19 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { verifySourceAlignment } from "@/lib/llm";
 import type { SourceCheckStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-interface Verdict {
-  status: SourceCheckStatus;
-  notes: string;
-}
-
-/** Reject non-http(s) and obvious private/internal hosts (basic SSRF guard). */
-function isFetchableUrl(raw: string): boolean {
-  let u: URL;
+function isHttpUrl(raw: string): boolean {
   try {
-    u = new URL(raw);
+    const u = new URL(raw);
+    return u.protocol === "http:" || u.protocol === "https:";
   } catch {
     return false;
   }
-  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-  const host = u.hostname.toLowerCase();
-  if (
-    host === "localhost" ||
-    host === "0.0.0.0" ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function fetchSourceText(url: string): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: { "User-Agent": "MarketIntelBot/1.0 (source-alignment check)" },
-    }).finally(() => clearTimeout(timer));
-
-    if (!resp.ok) return { ok: false, reason: `The source returned HTTP ${resp.status}.` };
-    const ctype = resp.headers.get("content-type") ?? "";
-    if (!/text\/html|text\/plain|application\/xhtml/i.test(ctype)) {
-      return { ok: false, reason: `The source is not a readable web page (${ctype || "unknown type"}).` };
-    }
-    const html = await resp.text();
-    const text = htmlToText(html);
-    if (text.length < 40) return { ok: false, reason: "The source page had no readable text." };
-    return { ok: true, text: text.slice(0, 8000) };
-  } catch (e: unknown) {
-    const msg = e instanceof Error && e.name === "AbortError" ? "The source timed out." : "The source could not be reached.";
-    return { ok: false, reason: msg };
-  }
-}
-
-async function judgeAlignment(
-  intel: { title: string; description: string | null },
-  sourceText: string,
-): Promise<Verdict> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    const err = new Error("no_anthropic_key");
-    err.name = "NoKeyError";
-    throw err;
-  }
-  const client = new Anthropic({ apiKey: key });
-  const model = process.env.ANTHROPIC_MODEL || "claude-opus-5";
-
-  const system = `You verify whether a cited web source actually supports a market-intelligence claim.
-Compare the INTEL ITEM (title + description) against the SOURCE TEXT extracted from its cited URL.
-Decide how well the source backs up the specific claim:
-- "aligned": the source clearly supports the core claim.
-- "partial": the source is on-topic and partially supports it, but key specifics are missing or only loosely related.
-- "misaligned": the source has real content but does not support the claim, is about something else, or contradicts it.
-- "unreachable": the SOURCE TEXT is not the real article at all — it is a JavaScript-required stub, a bot/CAPTCHA challenge, a cookie/consent wall, a paywall, a login page, or an error page. In this case the source could not actually be read, so do NOT judge the claim as misaligned.
-Respond with ONLY a JSON object (no prose, no code fences, no internal tags):
-{"status":"aligned"|"partial"|"misaligned"|"unreachable","notes":"one or two sentences explaining the verdict, citing what the source does or doesn't say"}`;
-
-  const user = `INTEL ITEM
-Title: ${intel.title}
-Description: ${intel.description ?? "(none)"}
-
-SOURCE TEXT (extracted from the cited URL, truncated):
-"""
-${sourceText}
-"""`;
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: 1024,
-    system,
-    thinking: { type: "disabled" },
-    messages: [{ role: "user", content: user }],
-  });
-
-  if (response.stop_reason === "refusal") {
-    return { status: "partial", notes: "The AI declined to assess this source; review it manually." };
-  }
-  const block = response.content.find((b) => b.type === "text");
-  const raw = block && "text" in block ? block.text : "";
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start === -1 || end <= start) {
-    return { status: "partial", notes: "Could not parse the alignment result; review manually." };
-  }
-  let parsed: { status?: string; notes?: string };
-  try {
-    parsed = JSON.parse(raw.slice(start, end + 1));
-  } catch {
-    return { status: "partial", notes: "Could not parse the alignment result; review manually." };
-  }
-  const status: SourceCheckStatus =
-    parsed.status === "aligned" ||
-    parsed.status === "misaligned" ||
-    parsed.status === "unreachable"
-      ? parsed.status
-      : "partial";
-  return { status, notes: String(parsed.notes ?? "").trim().slice(0, 600) || "No explanation returned." };
 }
 
 export async function POST(req: Request) {
@@ -160,24 +35,19 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!item) return NextResponse.json({ error: "Intel item not found." }, { status: 404 });
 
-  let verdict: Verdict;
   const url = (item.source_url as string | null)?.trim() ?? "";
+  let verdict: { status: SourceCheckStatus; notes: string };
 
   try {
     if (!url) {
       verdict = { status: "unreachable", notes: "No source URL is set for this item." };
-    } else if (!isFetchableUrl(url)) {
-      verdict = { status: "unreachable", notes: "The source URL is not a valid public http(s) address." };
+    } else if (!isHttpUrl(url)) {
+      verdict = { status: "unreachable", notes: "The source URL is not a valid http(s) address." };
     } else {
-      const fetched = await fetchSourceText(url);
-      if (!fetched.ok) {
-        verdict = { status: "unreachable", notes: fetched.reason };
-      } else {
-        verdict = await judgeAlignment(
-          { title: item.title as string, description: item.description as string | null },
-          fetched.text,
-        );
-      }
+      verdict = await verifySourceAlignment(url, {
+        title: item.title as string,
+        description: item.description as string | null,
+      });
     }
   } catch (e: unknown) {
     if (e instanceof Error && e.name === "NoKeyError") {
@@ -207,7 +77,6 @@ export async function POST(req: Request) {
     .eq("id", id);
 
   if (upErr) {
-    // Most likely the 0003 migration hasn't been applied yet.
     const needsMigration = /column .* does not exist/i.test(upErr.message);
     return NextResponse.json(
       {

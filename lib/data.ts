@@ -5,6 +5,7 @@ import type {
   IntelItemWithActions,
   IntelStatus,
   IntelType,
+  Watchlist,
 } from "@/lib/types";
 
 export interface IntelFilters {
@@ -12,7 +13,7 @@ export interface IntelFilters {
   status?: IntelStatus | "all";
 }
 
-/** Dashboard list: intel items ranked by priority_score desc, then created_at desc. */
+/** Dashboard list: APPROVED (reviewed) intel items ranked by priority_score desc, then created_at desc. */
 export async function getIntelItems(
   filters: IntelFilters = {},
 ): Promise<{ items: IntelItem[]; error: string | null }> {
@@ -20,6 +21,7 @@ export async function getIntelItems(
   let query = supabase
     .from("intel_items")
     .select("*")
+    .eq("review_status", "reviewed")
     .order("priority_score", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -29,6 +31,40 @@ export async function getIntelItems(
   const { data, error } = await query;
   if (error) return { items: [], error: error.message };
   return { items: (data as IntelItem[]) ?? [], error: null };
+}
+
+/** Feed inbox: unreviewed items awaiting approve/dismiss, newest first. */
+export async function getFeedItems(): Promise<{ items: IntelItem[]; error: string | null }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("intel_items")
+    .select("*")
+    .eq("review_status", "unreviewed")
+    .order("created_at", { ascending: false })
+    .order("priority_score", { ascending: false });
+  if (error) return { items: [], error: error.message };
+  return { items: (data as IntelItem[]) ?? [], error: null };
+}
+
+/** Count of unreviewed feed items, for the nav badge. */
+export async function getFeedPendingCount(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("intel_items")
+    .select("id", { count: "exact", head: true })
+    .eq("review_status", "unreviewed");
+  return count ?? 0;
+}
+
+export async function getWatchlist(): Promise<Watchlist[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("watchlist")
+    .select("*")
+    .order("category", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return data as Watchlist[];
 }
 
 /** Count of actions per intel item, for badges on the dashboard. */
@@ -74,6 +110,7 @@ export async function getCheckableSourceIds(): Promise<string[]> {
   const { data, error } = await supabase
     .from("intel_items")
     .select("id")
+    .eq("review_status", "reviewed")
     .not("source_url", "is", null)
     .neq("source_url", "")
     .order("priority_score", { ascending: false });
@@ -89,7 +126,7 @@ export async function getDashboardStats(): Promise<{
 }> {
   const supabase = await createClient();
   const [{ data: items }, { data: actions }] = await Promise.all([
-    supabase.from("intel_items").select("type,status"),
+    supabase.from("intel_items").select("type,status").eq("review_status", "reviewed"),
     supabase.from("actions").select("status"),
   ]);
   const list = (items as { type: IntelType; status: IntelStatus }[]) ?? [];

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { getFeedPendingCount } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Market Intel — MP Biomedicals BD",
@@ -8,11 +9,18 @@ export const metadata: Metadata = {
     "Capture AI-researched market opportunities and threats, rank them, assign response actions, and track follow-up.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let pending = 0;
+  try {
+    pending = await getFeedPendingCount();
+  } catch {
+    pending = 0;
+  }
+
   return (
     <html lang="en">
       <body className="antialiased bg-neutral-50 text-neutral-900 min-h-screen">
@@ -28,6 +36,17 @@ export default function RootLayout({
               </span>
             </Link>
             <nav className="flex items-center gap-2 text-sm">
+              <Link
+                href="/feed"
+                className="relative rounded-md border border-neutral-300 px-3 py-1.5 font-medium hover:bg-neutral-100"
+              >
+                Feed
+                {pending > 0 && (
+                  <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
+                    {pending}
+                  </span>
+                )}
+              </Link>
               <Link
                 href="/scan"
                 className="rounded-md bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700"

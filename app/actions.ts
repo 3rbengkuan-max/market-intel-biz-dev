@@ -218,3 +218,63 @@ export async function saveScanItems(
   revalidatePath("/");
   return { ok: true, savedCount: rows.length };
 }
+
+// ── Feed inbox: approve / dismiss ─────────────────────────────────────────────
+
+export async function approveFeedItem(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("intel_items")
+    .update({ review_status: "reviewed" })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/");
+  revalidatePath("/feed");
+  return { ok: true };
+}
+
+export async function dismissFeedItem(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("intel_items")
+    .update({ review_status: "rejected" })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/feed");
+  return { ok: true };
+}
+
+// ── Watch-list management ─────────────────────────────────────────────────────
+
+export async function addWatchTopic(form: FormData): Promise<ActionResult> {
+  const supabase = await createClient();
+  const topic = str(form, "topic");
+  if (!topic) return { ok: false, error: "Enter a topic to watch." };
+  const { error } = await supabase
+    .from("watchlist")
+    .insert({ topic, category: optStr(form, "category") });
+  if (error) {
+    return {
+      ok: false,
+      error: /duplicate key/i.test(error.message) ? "That topic is already on the watch-list." : error.message,
+    };
+  }
+  revalidatePath("/feed");
+  return { ok: true };
+}
+
+export async function toggleWatchTopic(id: string, enabled: boolean): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("watchlist").update({ enabled }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/feed");
+  return { ok: true };
+}
+
+export async function deleteWatchTopic(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("watchlist").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/feed");
+  return { ok: true };
+}

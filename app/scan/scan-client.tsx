@@ -76,7 +76,7 @@ export function ScanClient() {
         setError(res.error ?? "Failed to save.");
         return;
       }
-      router.push(`/?saved=${res.savedCount ?? selected.length}`);
+      router.push(`/feed?saved=${res.savedCount ?? selected.length}`);
     });
   }
 

@@ -1,6 +1,6 @@
 export type IntelType = "opportunity" | "threat";
 export type IntelStatus = "new" | "triaged" | "acting" | "closed";
-export type IntelSource = "ai_scan" | "manual" | "import";
+export type IntelSource = "ai_scan" | "manual" | "import" | "feed";
 export type ReviewStatus = "unreviewed" | "reviewed" | "rejected";
 
 export type ActionType = "develop" | "leverage" | "mitigate" | "monitor";
@@ -33,6 +33,15 @@ export interface IntelItem {
   source_check_status?: SourceCheckStatus | null;
   source_check_notes?: string | null;
   source_checked_at?: string | null;
+  category?: string | null;
+}
+
+export interface Watchlist {
+  id: string;
+  topic: string;
+  category: string | null;
+  enabled: boolean;
+  created_at: string;
 }
 
 export interface Action {
