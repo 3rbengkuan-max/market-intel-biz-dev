@@ -25,6 +25,8 @@ export function ScanClient() {
   const [noKey, setNoKey] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
+  const [filtered, setFiltered] = useState<{ title: string; url: string; reason: string }[]>([]);
+  const [foundCount, setFoundCount] = useState(0);
   const [saving, startSave] = useTransition();
 
   async function runScan(e?: React.FormEvent) {
@@ -34,6 +36,8 @@ export function ScanClient() {
     setError(null);
     setNoKey(false);
     setDrafts(null);
+    setFiltered([]);
+    setFoundCount(0);
     try {
       const res = await fetch("/api/scan", {
         method: "POST",
@@ -47,6 +51,8 @@ export function ScanClient() {
         return;
       }
       setRunId(data.runId ?? null);
+      setFiltered(data.filtered ?? []);
+      setFoundCount(data.foundCount ?? 0);
       setDrafts(
         (data.items as ScanDraftInput[]).map((it) => ({ ...it, _selected: true })),
       );
@@ -90,8 +96,9 @@ export function ScanClient() {
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight">AI research scan</h1>
         <p className="text-sm text-neutral-500">
-          Enter a topic. The AI surfaces 3–5 opportunities and threats as draft cards — review,
-          edit, and save the ones worth tracking.
+          Enter a topic. Claude <strong>searches the live web</strong> and <strong>verifies each
+          source</strong> before showing it — only source-confirmed items appear as drafts. Review
+          and save the ones worth tracking.
         </p>
       </div>
 
@@ -108,7 +115,7 @@ export function ScanClient() {
             disabled={loading || !query.trim()}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? "Scanning…" : "Run scan"}
+            {loading ? "Searching…" : "Run scan"}
           </button>
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -129,7 +136,8 @@ export function ScanClient() {
         <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center">
           <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-blue-600" />
           <p className="mt-3 text-sm text-neutral-500">
-            Scanning sources and drafting intel items…
+            Searching the web and verifying each source before showing it — this takes up to a
+            minute.
           </p>
         </div>
       )}
@@ -156,34 +164,68 @@ export function ScanClient() {
         </div>
       )}
 
-      {drafts && drafts.length > 0 && (
+      {drafts !== null && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">
-              {drafts.length} draft{drafts.length === 1 ? "" : "s"} · {selectedCount} selected
-            </h2>
-            <button
-              onClick={save}
-              disabled={saving || selectedCount === 0}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : `Save ${selectedCount} to dashboard`}
-            </button>
-          </div>
+          {foundCount > 0 && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Found {foundCount} · <strong>{drafts.length} verified</strong> · {filtered.length}{" "}
+              dropped (source not confirmed).
+            </div>
+          )}
 
-          {drafts.map((d, i) => (
-            <DraftCard key={i} draft={d} onChange={(patch) => updateDraft(i, patch)} />
-          ))}
+          {filtered.length > 0 && (
+            <details className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+              <summary className="cursor-pointer text-neutral-600">
+                {filtered.length} dropped — source couldn&apos;t be verified
+              </summary>
+              <ul className="mt-2 space-y-1.5 text-xs text-neutral-500">
+                {filtered.map((f, i) => (
+                  <li key={i}>
+                    <span className="font-medium text-neutral-700">{f.title}</span> — {f.reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
 
-          <div className="flex justify-end">
-            <button
-              onClick={save}
-              disabled={saving || selectedCount === 0}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : `Save ${selectedCount} to dashboard`}
-            </button>
-          </div>
+          {drafts.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-neutral-300 bg-white p-8 text-center">
+              <h3 className="font-medium text-neutral-800">No source-verified items for this query</h3>
+              <p className="mx-auto mt-1 max-w-md text-sm text-neutral-500">
+                The web search either found nothing recent, or none of the sources could be
+                confirmed. Try a different or broader topic — or add intel manually.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold">
+                  {drafts.length} verified draft{drafts.length === 1 ? "" : "s"} · {selectedCount} selected
+                </h2>
+                <button
+                  onClick={save}
+                  disabled={saving || selectedCount === 0}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : `Save ${selectedCount} to feed`}
+                </button>
+              </div>
+
+              {drafts.map((d, i) => (
+                <DraftCard key={i} draft={d} onChange={(patch) => updateDraft(i, patch)} />
+              ))}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={save}
+                  disabled={saving || selectedCount === 0}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : `Save ${selectedCount} to feed`}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -251,8 +293,13 @@ function DraftCard({
             value={draft.source_url}
             onChange={(e) => onChange({ source_url: e.target.value })}
             className={input + " text-blue-700"}
-            placeholder="Source URL (optional)"
+            placeholder="Source URL"
           />
+          {draft.source_check_notes && (
+            <p className="rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+              ✓ Verified: {draft.source_check_notes}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -184,6 +184,7 @@ export interface ScanDraftInput {
   confidence: number | null;
   recommendation: string;
   priority_score?: number;
+  source_check_notes?: string | null;
 }
 
 export async function saveScanItems(
@@ -210,12 +211,17 @@ export async function saveScanItems(
       source_url: d.source_url,
       actionCount: 0,
     }),
+    // Scan drafts are already source-verified (aligned) before they reach here.
+    source_check_status: "aligned" as const,
+    source_check_notes: d.source_check_notes ?? null,
+    source_checked_at: new Date().toISOString(),
   }));
 
   const { error } = await supabase.from("intel_items").insert(rows);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/");
+  revalidatePath("/feed");
   return { ok: true, savedCount: rows.length };
 }
 
