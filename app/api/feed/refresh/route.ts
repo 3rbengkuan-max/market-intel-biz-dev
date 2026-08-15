@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const MAX_CANDIDATES = 6;
+const MAX_CANDIDATES = 5;
 
 interface Candidate {
   type: IntelType;
@@ -98,7 +98,7 @@ Return up to ${MAX_CANDIDATES} of the strongest items as ONLY JSON (no prose, no
       max_tokens: 3072,
       system,
       messages: [{ role: "user", content: user }],
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
