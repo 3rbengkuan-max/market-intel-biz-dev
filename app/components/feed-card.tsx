@@ -47,6 +47,15 @@ export function FeedCard({ item }: { item: IntelItem }) {
         <p className="mt-1 text-sm text-neutral-600">{item.description}</p>
       )}
 
+      {item.recommendation && (
+        <div className="mt-2 rounded-md border border-blue-100 bg-blue-50 p-2.5">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-500">
+            Recommended action
+          </h4>
+          <p className="mt-0.5 text-sm text-blue-900">{item.recommendation}</p>
+        </div>
+      )}
+
       {item.source_check_notes && (
         <p className="mt-2 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
           ✓ Verified: {item.source_check_notes}

@@ -41,8 +41,9 @@ function normalizeCandidates(raw: unknown): Candidate[] {
       description: String(o.description ?? "").trim(),
       source_url,
       category: String(o.category ?? "").trim(),
+      recommendation: String(o.recommendation ?? "").trim(),
       confidence: Number.isNaN(conf) ? null : Math.min(1, Math.max(0, conf)),
-    } as Candidate & { confidence: number | null });
+    });
   }
   return out;
 }
